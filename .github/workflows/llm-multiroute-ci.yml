@@ -84,12 +84,18 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Get weekly cache key
+        id: date
+        run: echo "week=$(date +%Y-%V)" >> $GITHUB_OUTPUT
+
       - name: Build Docker image for scanning
         uses: docker/build-push-action@v6
         with:
           context: llm-multiroute
           load: true
           tags: smmt777/llm-multiroute:scan
+          build-args: |
+            CACHE_DATE=${{ steps.date.outputs.week }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -103,6 +109,14 @@ jobs:
           exit-code: '1'
           severity: 'CRITICAL,HIGH'
           trivyignores: .trivyignore
+          output: trivy-results.txt
+
+      - name: Upload Trivy results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-multiroute-results
+          path: trivy-results.txt
 
       - name: Login to Docker Hub
         if: github.event_name != 'pull_request'
